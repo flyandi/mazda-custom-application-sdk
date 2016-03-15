@@ -465,32 +465,6 @@ gulp.task('build-docs', function(callback) {
     );
 });
 
-/**
- * Common Commands
- */
-
-// clean
-gulp.task('clean', function() {
-    return del(
-        [output + '**/*']
-    );
-});
-
-
-// Default Task
-gulp.task('default', function(callback) {
-    runSequence(
-        'clean',
-        'build-system',
-        'build-install',
-        'build-uninstall',
-        'build-sdcard',
-        //'build-docs',
-        callback
-    );
-
-});
-
 
 /**
  * These build jobs are for distribution
@@ -603,6 +577,31 @@ gulp.task('dist-major', function(callback) {
     runSequence(
         'dist-bump-major',
         'build-dist',
+        callback
+    );
+});
+
+/**
+ * Common Commands
+ */
+
+// clean
+gulp.task('clean', function() {
+    return del(
+        [output + '**/*']
+    );
+});
+
+
+// Default Task
+gulp.task('default', function(callback) {
+    runSequence(
+        'clean',
+        'build-system',
+        'build-install',
+        'build-uninstall',
+        'build-sdcard',
+        //'build-docs',
         callback
     );
 });
