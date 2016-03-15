@@ -1,0 +1,7 @@
+.docstheme/
+npm-debug.log
+tmp/
+node_modules/
+npm_modules/
+build/
+dist/
