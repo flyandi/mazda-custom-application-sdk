@@ -538,9 +538,9 @@ gulp.task('dist-system', function() {
  * creates the release information for the distribution
  * @job dist-release
  */
-gulp.task('dist-release', function() {
+gulp.task('dist-latest', function() {
 
-    buildJsonVersion("release.json", distLatestOutput, "release-package");
+    buildJsonVersion("latest.json", distLatestOutput, "latest-release-package");
 });
 
 
@@ -552,7 +552,7 @@ gulp.task('build-dist', function(callback) {
     runSequence(
         'dist-runtime',
         'dist-system',
-        'dist-release',
+        'dist-latest',
         callback
     );
 });
