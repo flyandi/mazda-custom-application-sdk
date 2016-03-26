@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="../../system/CustomApplications.js"></script>
+
+    <script>
+
+        CustomApplications.initialize();
+
+
+        Logger.subscribe(function(level, name, msg, color) {
+            console.log(
+                '%c[' + level + '] %c[' + name + '] ' + msg,
+                'color:' + color,
+                'color:black'
+            );
+        });
+
+    </script>
+
+  </head>
+  <body>
+    <strong>CMU Protocol Test</strong>
+  </body>
+</html>

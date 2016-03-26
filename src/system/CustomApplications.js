@@ -24,28 +24,127 @@
  *
  */
 
-
 /**
- * (GlobalError)
+ * This is the main system file that manages everything between the CMU backend server and the frontend.
  */
 
-window.onerror = function() {
-	console.error(arguments);
-}
+/**
+ * (Logger)
+ */
+
+
+window.Logger = {
+
+	levels: {
+		debug: 'DEBUG',
+		info: 'INFO',
+		error: 'ERROR',
+	},
+
+	/**
+	 * Subscriptions
+	 * @array
+	 */
+	subscriptions: [],
+
+	/**
+	 * (debug) debug message
+	 */
+
+	debug: function() {
+		this.__message(this.levels.debug, "#006600", Array.apply(null, arguments));
+	},
+
+	/**
+	 * (error) error message
+	 */
+
+	error: function() {
+		this.__message(this.levels.error, "#FF0000", Array.apply(null, arguments));
+	},
+
+	/**
+	 * (info) info message
+	 */
+
+	info: function() {
+		this.__message(this.levels.info, "#0000FF", Array.apply(null, arguments));
+	},
+
+	/**
+	 * Subscribe
+	 * @return {[type]} [description]
+	 */
+	subscribe: function(callback) {
+
+		if(typeof(callback) == "function") {
+			this.subscriptions.push(callback);
+		}
+	},
+
+	/**
+	 * [__message description]
+	 * @param  {[type]} level  [description]
+	 * @param  {[type]} color  [description]
+	 * @param  {[type]} values [description]
+	 * @return {[type]}        [description]
+	 */
+	__message: function(level, color, values) {
+
+		var msg = [];
+
+		if(values.length > 1) {
+			values.forEach(function(value, index) {
+
+				if(index > 0) {
+
+					if(typeof(value) == "object") {
+
+						var keys = value, o = false;
+
+						if(Object.prototype.toString.call(value) == "[object Object]") {
+							var keys = Object.keys(value),
+								o = true;
+						}
+
+						keys.forEach(function(v, index) {
+							msg.push(o ? '[' + v + '=' + value[v]+ ']' : '[' + v + ']');
+						});
+
+					} else {
+						msg.push(value);
+					}
+				}
+			});
+		}
+
+		msg = msg.join(" ");
+
+		this.subscriptions.forEach(function(subscription) {
+
+			try {
+				subscription(level, values[0], msg, color);
+			} catch(e) {
+
+			}
+		});
+	}
+};
 
 
 /**
- * (CustomApplicationsProxy)
+ * (CustomApplications)
  *
  * Registers itself between the JCI system and CustomApplication runtime.
  */
 
-window.CustomApplicationsProxy = {
+window.CustomApplications = {
+
+	ID: 'system',
 
 	/**
 	 * (locals)
 	 */
-
 	debug: false,
 	bootstrapped: false,
 
@@ -59,6 +158,226 @@ window.CustomApplicationsProxy = {
 	targetAppName: 'custom',
 	targetAppContext: 'Surface',
 
+	/**
+	 * Configuration
+	 */
+	configuration: {
+
+		networkHost: '127.0.0.1',
+		networkPort: 9700,
+
+	},
+
+	/**
+	 * Commands
+	 */
+	commands: {
+
+		REQUEST_PING: 'ping',
+		REQUEST_APPLICATIONS: 'applications',
+	},
+
+	/**
+	 * Results
+	 */
+	results: {
+
+		RESULT_OK: 200,
+		RESULT_PONG: 201,
+		RESULT_NOTFOUND: 404,
+		RESULT_ERROR: 500,
+	},
+
+	/**
+	 * Initializes the proxy
+	 * @return void
+	 */
+	initialize: function() {
+
+		this.requests = {};
+
+		this.obtainConnection();
+
+	},
+
+
+	/**
+	 * Establishes a connection between the front and backend
+	 * @return void
+	 */
+	obtainConnection: function() {
+
+		try {
+
+			this.client = new WebSocket('ws://' + this.configuration.networkHost + ':' + this.configuration.networkPort);
+
+			/**
+			 * Ping
+			 */
+			this.client.ping = function() {
+
+				this.request(this.commands.REQUEST_PING, {
+					inboundStamp: (new Date()).getTime()
+				}, function(error, result) {
+
+					Logger.info(this.ID, "ping", {
+						lost: error,
+						time: !error ? result.outboundStamp - result.inboundStamp : 0,
+					});
+
+				}.bind(this));
+
+			}.bind(this);
+
+			/**
+			 * onOpen
+			 * @event
+			 */
+			this.client.onopen = function() {
+
+				Logger.info(this.ID, "connection open");
+
+				this.client.ping();
+
+				this.requestApplications();
+
+			}.bind(this);
+
+			/**
+			 * onMessage
+			 * @event
+			 */
+			this.client.onmessage = function(message) {
+
+				this.handleReturnRequest(message);
+
+			}.bind(this);
+
+			/**
+			 * onError
+			 * @event
+			 */
+			this.client.onerror = function(error) {
+
+				Logger.error(CustomApplications.ID, 'ClientError', error);
+
+			}.bind(this);
+
+			/**
+			 * onClose
+			 * @event
+			 */
+			this.client.onclose = function(event) {
+
+				this.client = null;
+
+				if(event.code == 3110) {
+
+				} else {
+
+					setTimeout(function() {
+
+						CustomApplications.obtainConnection();
+
+					}, 5000); // retry later
+
+				}
+
+			}.bind(this);
+
+		} catch(e) {
+
+			this.client = null;
+		}
+	},
+
+	/**
+	 * [request description]
+	 * @return {[type]} [description]
+	 */
+	request: function(request, payload, callback) {
+
+		// check connection state
+		if(!this.client || this.client.readyState != 1) return callback(true, {});
+
+		// prepare id
+		var id = false;
+		while(!id || this.requests[id]) {
+			id = (new Date()).getTime();
+		}
+
+		// register request
+		this.requests[id] = callback;
+
+		// sanity check
+		payload = payload || {};
+
+		// add request id
+		payload.requestId = id;
+
+		payload.request = request;
+
+		// execute
+		return this.client.send(JSON.stringify(payload));
+	},
+
+
+	/**
+	 * Processes a request
+	 * @param  {[type]} data [description]
+	 * @return {[type]}      [description]
+	 */
+	handleReturnRequest: function(message) {
+
+		try {
+			// parse message
+			var payload = JSON.parse(message.data);
+
+			// check against active requests
+			if(payload.requestId && this.requests[payload.requestId]) {
+
+				var callback = this.requests[payload.requestId];
+
+				if(typeof(callback) == "function") {
+
+					callback(payload.result == this.results.RESULT_ERROR, payload);
+				}
+
+				delete this.requests[payload.requestId];
+
+				return; // all done
+			}
+
+		} catch(e) {
+
+			Logger.error(CustomApplications.ID, 'handleReturnRequest', e);
+		}
+	},
+
+
+	/**
+	 * Trys to load the Custom Applications
+	 * @return void
+	 */
+	requestApplications: function() {
+
+		if(typeof(CustomApplicationsHandler) != "undefined") return false;
+
+		if(!this.request(this.commands.REQUEST_APPLICATIONS, false, function(error, result) {
+
+			if(error) {
+
+				return setTimeout(function() {
+
+					this.requestApplications();
+
+				}.bind(this), 100);
+			}
+
+			console.log(result);
+
+		}.bind(this)));
+	},
 
 	/**
 	 * (bootstrap)
@@ -66,7 +385,7 @@ window.CustomApplicationsProxy = {
 	 * Bootstraps the JCI system
 	 */
 
-	 bootstrap: function() {
+	bootstrap: function() {
 
 		// verify that core objects are available
 		if(typeof framework === 'object' && framework._currentAppUiaId === this.systemAppId && this.bootstrapped === false) {
@@ -184,7 +503,7 @@ window.CustomApplicationsProxy = {
 	routeMmuiMsg: function(jsObject) {
 
 		if(typeof(CustomApplicationsHandler) === 'object') {
-		
+
 			try {
 
 				var proxy = CustomApplicationsProxy;
@@ -349,7 +668,7 @@ window.CustomApplicationsProxy = {
 
 if(window.opera) {
 	window.opera.addEventListener('AfterEvent.load', function (e) {
-		CustomApplicationsProxy.bootstrap();
+		CustomApplications.initialize();
 	});
 }
 

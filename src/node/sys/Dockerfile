@@ -67,6 +67,7 @@ RUN cd ${NODE_SOURCE_PACKAGE}
 # Change work dir
 WORKDIR /armv7l/${NODE_SOURCE_PACKAGE}
 
+
 # Configure
 RUN ./configure --without-snapshot --dest-cpu=arm --dest-os=linux --fully-static --without-ssl --tag=CASDK-NODE
 

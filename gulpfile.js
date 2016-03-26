@@ -50,7 +50,9 @@ var
     del = require('del'),
     fs = require('fs'),
     glob = require('glob'),
-    exec = require('child_process').exec;
+    exec = require('child_process').exec,
+    using = require('gulp-using'),
+    flatten = require('gulp-flatten');
 
 /**
  * @package
@@ -109,7 +111,7 @@ var buildJsonVersion = function(output, destination, name, attributes) {
 /**
  * (build) local apps
  *
- * These tasks handle the copy and build of the local apps
+ * These tasks handles the example apps
  */
 
 var appsPathInput = "./apps/",
@@ -149,59 +151,59 @@ gulp.task('build-apps', function(callback) {
 
 
 /**
- * tasks to build the runtime
+ * tasks to build the framework
  */
 
 var systemPathOutput = output + "system/",
-    runtimePathInput = input + "runtime/",
-    runtimePathOutput = systemPathOutput + "runtime/",
+    frameworkPathInput = input + "framework/",
+    frameworkPathOutput = systemPathOutput + "framework/",
     customPathInput = input + "custom/";
 
 // (cleanup)
-gulp.task('system-cleanup', function() {
+gulp.task('framework-cleanup', function() {
     return del(
         [systemPathOutput + '**/*']
     );
 });
 
 // (skeleton)
-gulp.task('system-runtime-skeleton', function() {
+gulp.task('framework-skeleton', function() {
 
-    return gulp.src(runtimePathInput + "skeleton/**/*", {
-            base: runtimePathInput + "skeleton"
+    return gulp.src(frameworkPathInput + "skeleton/**/*", {
+            base: frameworkPathInput + "skeleton"
         })
-        .pipe(gulp.dest(runtimePathOutput));
+        .pipe(gulp.dest(frameworkPathOutput));
 });
 
 
 // (less)
-gulp.task('system-runtime-less', function() {
+gulp.task('framework-less', function() {
 
-    return gulp.src(runtimePathInput + "less/*", {
-            base: runtimePathInput + "less"
+    return gulp.src(frameworkPathInput + "less/*", {
+            base: frameworkPathInput + "less"
         })
-        .pipe(concat('runtime.css'))
+        .pipe(concat('framework.css'))
         .pipe(less())
-        .pipe(gulp.dest(runtimePathOutput));
+        .pipe(gulp.dest(frameworkPathOutput));
 });
 
 
 // (Concatenate & Minify)
-gulp.task('system-runtime-js', function() {
+gulp.task('framework-js', function() {
 
-    return gulp.src(runtimePathInput + "js/*", {
-            base: runtimePathInput + "js"
+    return gulp.src(frameworkPathInput + "js/*", {
+            base: frameworkPathInput + "js"
         })
-        .pipe(concat('runtime.js'))
+        .pipe(concat('framework.js'))
         .pipe(uglify())
-        .pipe(concatutil.header(fs.readFileSync(runtimePathInput + "resources/header.txt", "utf8"), {
+        .pipe(concatutil.header(fs.readFileSync(frameworkPathInput + "resources/header.txt", "utf8"), {
             pkg: package
         }))
-        .pipe(gulp.dest(runtimePathOutput));
+        .pipe(gulp.dest(frameworkPathOutput));
 });
 
 // (copy custom app)
-gulp.task('system-custom', function() {
+gulp.task('framework-custom', function() {
     return gulp.src(customPathInput + "**/*", {
             base: customPathInput
         })
@@ -209,25 +211,25 @@ gulp.task('system-custom', function() {
 });
 
 /** @job system-version */
-gulp.task('system-version', function() {
+gulp.task('framework-version', function() {
 
-    buildJsonVersion("runtime.json", runtimePathOutput, "runtime-package", function(package) {
+    buildJsonVersion("framework.json", frameworkPathOutput, "framework-package", function(package) {
         return {
-            runtime: true,
+            framework: true,
         }
     });
 });
 
 
-// (build system)
-gulp.task('build-system', function(callback) {
+// (build framework)
+gulp.task('build-framework', function(callback) {
     runSequence(
-        'system-cleanup',
-        'system-runtime-skeleton',
-        'system-runtime-less',
-        'system-runtime-js',
-        'system-custom',
-        'system-version',
+        'framework-cleanup',
+        'framework-skeleton',
+        'framework-less',
+        'framework-js',
+        'framework-custom',
+        'framework-version',
         callback
     );
 });
@@ -378,6 +380,8 @@ gulp.task('build-sdcard', function(callback) {
         callback
     );
 });
+
+
 
 
 /**
@@ -597,11 +601,32 @@ gulp.task('clean', function() {
 gulp.task('default', function(callback) {
     runSequence(
         'clean',
-        'build-system',
+        'build-framework',
         'build-install',
         'build-uninstall',
         'build-sdcard',
         //'build-docs',
         callback
     );
+});
+
+
+/**
+ * Node
+ */
+
+var nodePathInput = input + 'node-cmu/',
+    nodePathSource = input + 'node/latest/',
+    nodePathOutput = output + 'node/';
+
+
+// (cleanup)
+gulp.task('node', function() {
+
+    // copy embeeded files
+    gulp.src(nodePathInput + "**/*.js", {
+        base: nodePathInput
+    }).pipe(flatten()).pipe(gulp.dest(nodePathOutput + 'cmu'));
+
+
 });
