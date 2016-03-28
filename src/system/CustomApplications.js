@@ -174,7 +174,7 @@ window.CustomApplications = {
 	commands: {
 
 		REQUEST_PING: 'ping',
-		REQUEST_APPLICATIONS: 'applications',
+		REQUEST_APPDRIVE: 'appdrive',
 	},
 
 	/**
@@ -239,7 +239,7 @@ window.CustomApplications = {
 
 				this.client.ping();
 
-				this.requestApplications();
+				this.requestAppDrive();
 
 			}.bind(this);
 
@@ -356,14 +356,14 @@ window.CustomApplications = {
 
 
 	/**
-	 * Trys to load the Custom Applications
+	 * Trys to load the AppDrive
 	 * @return void
 	 */
-	requestApplications: function() {
+	requestAppDrive: function() {
 
 		if(typeof(CustomApplicationsHandler) != "undefined") return false;
 
-		if(!this.request(this.commands.REQUEST_APPLICATIONS, false, function(error, result) {
+		if(!this.request(this.commands.REQUEST_APPDRIVE, false, function(error, result) {
 
 			if(error) {
 
@@ -374,7 +374,7 @@ window.CustomApplications = {
 				}.bind(this), 100);
 			}
 
-			console.log(result);
+			// Continue here
 
 		}.bind(this)));
 	},

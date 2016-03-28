@@ -45,7 +45,7 @@ const fs = require("fs");
 
 const REQUEST_VERSION = "version";
 const REQUEST_PING = "ping";
-const REQUEST_APPLICATIONS = "applications";
+const REQUEST_APPDRIVE = "appdrive";
 
 const RESULT_OK = 200;
 const RESULT_PONG = 201;
@@ -54,7 +54,7 @@ const RESULT_ERROR = 500;
 
 
 const MOUNTROOT_PATH = "/tmp/mnt/";
-const APPLICATIONS_PATH = "/apps/";
+const APPDRIVE_PATH = "/appdrive/";
 
 const APPLICATION_JSON = "app.json";
 const APPLICATION_CSS = "app.css";
@@ -62,6 +62,10 @@ const APPLICATION_JS = "app.js";
 const APPLICATION_WORKER = "worker.js";
 
 const APPDRIVE_JSON = "appdrive.json";
+
+const FRAMEWORK_PATH = "/system/framework/";
+const FRAMEWORK_JS = "framework.js";
+const FRAMEWORK_CSS = "framework.css";
 
 /**
  * This is the CMU that is compiled into the node binary and runs the actual link between the
@@ -185,13 +189,13 @@ cmu.prototype = {
                         break;
 
                     /**
-                     * Returns the current registered applications
-                     * @type REQUEST_APPLICATIONS
+                     * Finds the AppDrive
+                     * @type REQUEST_APPDRIVE
                      */
-                    case REQUEST_APPLICATIONS:
+                    case REQUEST_APPDRIVE:
 
                         // find applications
-                        this.findApplications(function(applications, appdrive) {
+                        this.findAppDrive(function(applications, appdrive) {
 
                             this.sendFromPayload(client, payload, {
                                 applications: applications,
@@ -245,32 +249,41 @@ cmu.prototype = {
 
 
     /**
-     * Finds all applications in known locations
+     * Finds the appdrive
      * @return {[type]} [description]
      */
-    findApplications: function(callback) {
+    findAppDrive: function(callback) {
 
         this.applications = {};
 
         this.appdrive = false;
+
+        this.framework = false;
 
         var result = [],
             mountPoints = ['sd_nav', 'sda', 'sdb', 'sdc', 'sdd', 'sde'];
 
         mountPoints.forEach(function(mountPoint) {
 
-            var path = [MOUNTROOT_PATH, mountPoint, APPLICATIONS_PATH].join(""),
+            /** framework */
 
-                appdriveFilename = [path, APPDRIVE_JSON].join("");
+            var frameworkPath = [MOUNTROOT_PATH, mountPoint, FRAMEWORK_PATH].join("");
+
+            if(this._isDir)
+
+            var applicationsPath = [MOUNTROOT_PATH, mountPoint, APPLICATIONS_PATH].join(""),
+
+                appdriveFilename = [path, APPDRIVE_JSON].join(""),
+
 
             if(this._isFile(appdriveFilename)) {
 
                 this.appdrive = require(appdriveFilename);
             }
 
-            if(this._isDir(path)) {
+            if(this._isDir(applicationsPath)) {
 
-                var files = fs.readdirSync(path);
+                var files = fs.readdirSync(applicationsPath);
 
                 if(files.length) files.forEach(function(appId) {
 
@@ -281,13 +294,13 @@ cmu.prototype = {
 
                     if(!this.applications[appId]) {
 
-                        var applicationPath = [path, appId, "/"].join("");
+                        var applicationPath = [applicationsPath, appId, "/"].join("");
 
                         if(this._isDir(applicationPath)) {
 
                             var profile = {
-                                    appId: appId,
-                                    appPath: applicationPath,
+                                    id: appId,
+                                    path: applicationPath,
                                     files: {},
                                 },
                                 parts = [APPLICATION_JS, APPLICATION_JSON, APPLICATION_CSS, APPLICATION_WORKER],
@@ -301,6 +314,13 @@ cmu.prototype = {
 
                                     profile.files[filename] = fullFilename;
                                     found++;
+
+                                    switch(filename) {
+
+                                        case APPLICATION_JSON:
+                                            profile.info = require(fullFilename);
+                                            break;
+                                    }
                                 }
                             }.bind(this));
 
