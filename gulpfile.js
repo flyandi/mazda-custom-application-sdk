@@ -117,8 +117,9 @@ var buildJsonVersion = function(output, destination, name, attributes) {
 var appDrivePathOutput = output + 'appdrive/',
     systemPathOutput = appDrivePathOutput + 'system/',
     frameworkPathInput = input + 'framework/',
-    frameworkPathOutput = systemPathOutput,
+    frameworkPathOutput = systemPathOutput + 'framework/',
     customPathInput = input + 'custom/',
+    customPathOutput = systemPathOutput + 'custom/',
     appsPathInput = 'apps/',
     appsPathOutput = appDrivePathOutput + 'apps/';
 
@@ -184,7 +185,7 @@ gulp.task('appdrive-framework-custom', function() {
     return gulp.src(customPathInput + "**/*", {
             base: customPathInput
         })
-        .pipe(gulp.dest(frameworkPathOutput));
+        .pipe(gulp.dest(customPathOutput));
 });
 
 /**

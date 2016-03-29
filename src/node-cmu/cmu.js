@@ -65,8 +65,12 @@ const APPLICATION_JS = "app.js";
 const APPLICATION_WORKER = "worker.js";
 
 const SYSTEM_PATH = "system/";
-const FRAMEWORK_JS = "framework.js";
-const FRAMEWORK_CSS = "framework.css";
+const SYSTEM_FRAMEWORK_PATH = "framework/";
+const SYSTEM_FRAMEWORK_JS = "framework.js";
+const SYSTEM_FRAMEWORK_CSS = "framework.css";
+
+const JCI_MOUNT_PATH = "/tmp/mnt/data_persist/appdrive/"; // we link our resources in here
+const JCI_MOUNT_CUSTOM_PATH = "custom/";
 
 /**
  * This is the CMU that is compiled into the node binary and runs the actual link between the
@@ -112,8 +116,6 @@ cmu.prototype = {
      */
     __construct: function()
     {
-        this.applications = {};
-
         this.__socket = new _webSocketServer({
             port: this.network.port
         });
@@ -124,6 +126,7 @@ cmu.prototype = {
 
         }.bind(this));
 
+        this.findAppDrive();
     },
 
 
@@ -196,11 +199,10 @@ cmu.prototype = {
                     case REQUEST_APPDRIVE:
 
                         // find applications
-                        this.findAppDrive(function(applications, appdrive) {
+                        this.findAppDrive(function(appdrive) {
 
                             this.sendFromPayload(client, payload, {
-                                applications: applications,
-                                appdrive: appdrive,
+                                appdrive
                             });
 
                         }.bind(this));
@@ -255,42 +257,68 @@ cmu.prototype = {
      */
     findAppDrive: function(callback) {
 
-        this.applications = {};
-
-        this.appdrive = false;
-
-        this.framework = false;
+        this.appdrive = {
+            locations: {},
+            applications: {},
+            js: [],
+            css: [],
+        };
 
         var result = [],
             mountPoints = ['sd_nav', 'sda', 'sdb', 'sdc', 'sdd', 'sde'];
 
         mountPoints.forEach(function(mountPoint) {
 
-            /** framework */
-
-            var frameworkPath = [MOUNTROOT_PATH, mountPoint, FRAMEWORK_PATH].join("");
-
             var appDrivePath = [MOUNTROOT_PATH, mountPoint, APPDRIVE_PATH].join(""),
 
-                appDriveFilename = [appDrivePath, APPDRIVE_JSON].join("");
+                appDriveFilename = [appDrivePath, APPDRIVE_JSON].join(""),
 
+                applicationsPath = [appDrivePath, APPLICATIONS_PATH].join(""),
 
-            if(this._isFile(appDriveFilename)) {
+                systemPath = [appDrivePath, SYSTEM_PATH].join("");
 
-                this.appdrive = require(appDriveFilename);
+            // check primary conditions
+            if(this._isFile(appDriveFilename) && this._isDir(systemPath) && this._isDir(applicationsPath)) {
 
-                var files = fs.readdirSync(appDrivePath);
+                /**
+                 * Assign location
+                 */
 
-                if(files.length) files.forEach(function(appId) {
+                this.appdrive.locations = {
+                    root: appDrivePath,
+                    apps: applicationsPath
+                };
+
+                /**
+                 * Load AppDrive
+                 */
+
+                this.appdrive.package = require(appDriveFilename);
+
+                /**
+                 * Load Framework
+                 */
+
+                this.appdrive.js.push([systemPath, SYSTEM_FRAMEWORK_PATH, SYSTEM_FRAMEWORK_JS].join(""));
+
+                this.appdrive.css.push([systemPath, SYSTEM_FRAMEWORK_PATH, SYSTEM_FRAMEWORK_CSS].join(""))
+
+                /**
+                 * Find Applications
+                 */
+
+                var appFiles = fs.readdirSync(applicationsPath);
+
+                if(appFiles.length) appFiles.forEach(function(appId) {
 
                     /**
                      * currently we only allow the first application to be registered
                      * otherwise you would need to restart the CMU
                      */
 
-                    if(!this.applications[appId]) {
+                    if(!this.appdrive.applications[appId]) {
 
-                        var applicationPath = [appDrivePath, appId, "/"].join("");
+                        var applicationPath = [applicationsPath, appId, "/"].join("");
 
                         if(this._isDir(applicationPath)) {
 
@@ -322,7 +350,7 @@ cmu.prototype = {
 
 
                             if(found >= 1) {
-                                this.applications[appId] = profile;
+                                this.appdrive.applications[appId] = profile;
                             }
                         }
                     }
@@ -332,8 +360,7 @@ cmu.prototype = {
 
         }.bind(this));
 
-        if(callback) callback(this.applications, this.appdrive);
-
+        if(callback) callback(this.appdrive);
     },
 
     /**

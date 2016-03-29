@@ -32,7 +32,6 @@
  * (Logger)
  */
 
-
 window.Logger = {
 
 	levels: {
@@ -135,7 +134,7 @@ window.Logger = {
 /**
  * (CustomApplications)
  *
- * Registers itself between the JCI system and CustomApplication runtime.
+ * Registers itself between the JCI system and CustomApplication framework.
  */
 
 window.CustomApplications = {
@@ -151,6 +150,9 @@ window.CustomApplications = {
 	systemAppId: 'system',
 	systemAppCategory: 'Applications',
 
+	/**
+	 * Overwrites
+	 */
 	proxyAppName: 'vdt',
 	proxyAppContext: 'DriveChartDetails',
 	proxyMmuiEvent: 'SelectDriveRecord',
@@ -192,12 +194,18 @@ window.CustomApplications = {
 	 * Initializes the proxy
 	 * @return void
 	 */
-	initialize: function() {
+	initialize: function(callback) {
 
-		this.requests = {};
+		if(!this.initialized) {
 
-		this.obtainConnection();
+			this.initialized = true;
 
+			this.requests = {};
+
+			this.obtainConnection();
+		}
+
+		return callback ? callback() : true;
 	},
 
 
@@ -366,19 +374,15 @@ window.CustomApplications = {
 		if(!this.request(this.commands.REQUEST_APPDRIVE, false, function(error, result) {
 
 			if(error) {
-
 				return setTimeout(function() {
 
-					this.requestApplications();
+					this.requestAppDrive();
 
 				}.bind(this), 100);
 			}
 
-			console.log(result);
-
-			Logger.debug(this.ID, "requestAppdrive", result);
-
-			// Continue here
+			// boot strap system
+			this.bootstrap();
 
 		}.bind(this)));
 	},
@@ -570,20 +574,6 @@ window.CustomApplications = {
 
 
 	/**
-	 * (prepareCustomApplications)
-	 */
-
-	prepareCustomApplications: function() {
-
-	    this.loadCount = 0;
-	    setTimeout(function() {
-	        this.loadCustomApplications();
-	    }.bind(this), this.debug ? 500 : 5000); // first attempt wait 5s - the system might be booting still anyway
-
-	},
-
-
-	/**
 	 * (loadCustomApplications)
 	 */
 
@@ -672,7 +662,9 @@ window.CustomApplications = {
 
 if(window.opera) {
 	window.opera.addEventListener('AfterEvent.load', function (e) {
-		CustomApplications.initialize();
+		CustomApplications.initialize(function() {
+			CustomApplications.bootstrap();
+		});
 	});
 }
 
