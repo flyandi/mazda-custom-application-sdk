@@ -55,15 +55,16 @@ const RESULT_ERROR = 500;
 
 const MOUNTROOT_PATH = "/tmp/mnt/";
 const APPDRIVE_PATH = "/appdrive/";
+const APPDRIVE_JSON = "appdrive.json";
+
+const APPLICATIONS_PATH = "apps/";
 
 const APPLICATION_JSON = "app.json";
 const APPLICATION_CSS = "app.css";
 const APPLICATION_JS = "app.js";
 const APPLICATION_WORKER = "worker.js";
 
-const APPDRIVE_JSON = "appdrive.json";
-
-const FRAMEWORK_PATH = "/system/framework/";
+const SYSTEM_PATH = "system/";
 const FRAMEWORK_JS = "framework.js";
 const FRAMEWORK_CSS = "framework.css";
 
@@ -269,21 +270,16 @@ cmu.prototype = {
 
             var frameworkPath = [MOUNTROOT_PATH, mountPoint, FRAMEWORK_PATH].join("");
 
-            if(this._isDir)
+            var appDrivePath = [MOUNTROOT_PATH, mountPoint, APPDRIVE_PATH].join(""),
 
-            var applicationsPath = [MOUNTROOT_PATH, mountPoint, APPLICATIONS_PATH].join(""),
-
-                appdriveFilename = [path, APPDRIVE_JSON].join(""),
+                appDriveFilename = [appDrivePath, APPDRIVE_JSON].join("");
 
 
-            if(this._isFile(appdriveFilename)) {
+            if(this._isFile(appDriveFilename)) {
 
-                this.appdrive = require(appdriveFilename);
-            }
+                this.appdrive = require(appDriveFilename);
 
-            if(this._isDir(applicationsPath)) {
-
-                var files = fs.readdirSync(applicationsPath);
+                var files = fs.readdirSync(appDrivePath);
 
                 if(files.length) files.forEach(function(appId) {
 
@@ -294,7 +290,7 @@ cmu.prototype = {
 
                     if(!this.applications[appId]) {
 
-                        var applicationPath = [applicationsPath, appId, "/"].join("");
+                        var applicationPath = [appDrivePath, appId, "/"].join("");
 
                         if(this._isDir(applicationPath)) {
 

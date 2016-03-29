@@ -374,6 +374,10 @@ window.CustomApplications = {
 				}.bind(this), 100);
 			}
 
+			console.log(result);
+
+			Logger.debug(this.ID, "requestAppdrive", result);
+
 			// Continue here
 
 		}.bind(this)));

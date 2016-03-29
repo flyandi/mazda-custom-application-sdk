@@ -108,66 +108,36 @@ var buildJsonVersion = function(output, destination, name, attributes) {
 }
 
 
+
 /**
- * (build) local apps
- *
- * These tasks handles the example apps
+ * Tasks to build the AppDrive
+ * @jobs
  */
 
-var appsPathInput = "./apps/",
-    appsPathOutput = output + 'apps/system/casdk/apps/';
-
-
-// (cleanup)
-gulp.task('apps-cleanup', function() {
-    return del(
-        [appsPathOutput + '**/*']
-    );
-});
-
-// (copy)
-gulp.task('apps-copy', function() {
-
-    return gulp.src(appsPathInput + "**/*", {
-            base: appsPathInput
-        })
-        .pipe(gulp.dest(appsPathOutput));
-});
-
-// (register)
-gulp.task('apps-register', function() {
-    return;
-});
-
-// (build)
-gulp.task('build-apps', function(callback) {
-    runSequence(
-        'apps-cleanup',
-        'apps-copy',
-        'apps-register',
-        callback
-    );
-});
+var appDrivePathOutput = output + 'appdrive/',
+    systemPathOutput = appDrivePathOutput + 'system/',
+    frameworkPathInput = input + 'framework/',
+    frameworkPathOutput = systemPathOutput,
+    customPathInput = input + 'custom/',
+    appsPathInput = 'apps/',
+    appsPathOutput = appDrivePathOutput + 'apps/';
 
 
 /**
- * tasks to build the framework
+ * Removes old artifacts from the Appdrive
+ * @job appdrive-cleanup
  */
-
-var systemPathOutput = output + "system/",
-    frameworkPathInput = input + "framework/",
-    frameworkPathOutput = systemPathOutput + "framework/",
-    customPathInput = input + "custom/";
-
-// (cleanup)
-gulp.task('framework-cleanup', function() {
+gulp.task('appdrive-cleanup', function() {
     return del(
-        [systemPathOutput + '**/*']
+        [appDrivePathOutput + '**/*']
     );
 });
 
-// (skeleton)
-gulp.task('framework-skeleton', function() {
+/**
+ * Builds the framework skeleton
+ * @job apdrive-framework-skeleton
+ */
+gulp.task('appdrive-framework-skeleton', function() {
 
     return gulp.src(frameworkPathInput + "skeleton/**/*", {
             base: frameworkPathInput + "skeleton"
@@ -175,9 +145,11 @@ gulp.task('framework-skeleton', function() {
         .pipe(gulp.dest(frameworkPathOutput));
 });
 
-
-// (less)
-gulp.task('framework-less', function() {
+/**
+ * Processes the less files into css
+ * @job appdrive-framework-less
+ */
+gulp.task('appdrive-framework-less', function() {
 
     return gulp.src(frameworkPathInput + "less/*", {
             base: frameworkPathInput + "less"
@@ -187,9 +159,11 @@ gulp.task('framework-less', function() {
         .pipe(gulp.dest(frameworkPathOutput));
 });
 
-
-// (Concatenate & Minify)
-gulp.task('framework-js', function() {
+/**
+ * Compiles the javascript for the framework
+ * @job appdrive-framework-js
+ */
+gulp.task('appdrive-framework-js', function() {
 
     return gulp.src(frameworkPathInput + "js/*", {
             base: frameworkPathInput + "js"
@@ -202,34 +176,52 @@ gulp.task('framework-js', function() {
         .pipe(gulp.dest(frameworkPathOutput));
 });
 
-// (copy custom app)
-gulp.task('framework-custom', function() {
+/**
+ * Copy's the custom application for the JCI system
+ * @job appdrive-framework-custom
+ */
+gulp.task('appdrive-framework-custom', function() {
     return gulp.src(customPathInput + "**/*", {
             base: customPathInput
         })
-        .pipe(gulp.dest(systemPathOutput));
+        .pipe(gulp.dest(frameworkPathOutput));
 });
 
-/** @job system-version */
-gulp.task('framework-version', function() {
+/**
+ * Copy's the local apps to the AppDrive
+ * @job appdrive-app
+ */
+gulp.task('appdrive-apps', function() {
+    return gulp.src(appsPathInput + "**/*", {
+            base: appsPathInput
+        })
+        .pipe(gulp.dest(appsPathOutput));
+});
 
-    buildJsonVersion("framework.json", frameworkPathOutput, "framework-package", function(package) {
+/**
+ * Creates the AppDrive JSON - This is usually managed through the AppDrive app
+ * @appdrive-apps-json
+ */
+
+gulp.task('appdrive-apps-json', function() {
+
+    buildJsonVersion("appdrive.json", appDrivePathOutput, "appdrive-package", function(package) {
         return {
             framework: true,
         }
     });
 });
 
-
 // (build framework)
-gulp.task('build-framework', function(callback) {
+gulp.task('build-appdrive', function(callback) {
     runSequence(
-        'framework-cleanup',
-        'framework-skeleton',
-        'framework-less',
-        'framework-js',
-        'framework-custom',
-        'framework-version',
+        'appdrive-cleanup',
+        'appdrive-framework-skeleton',
+        'appdrive-framework-less',
+        'appdrive-framework-js',
+        'appdrive-framework-custom',
+        'appdrive-apps',
+        'appdrive-apps-json',
         callback
     );
 });
@@ -338,51 +330,6 @@ gulp.task('build-uninstall', function(callback) {
         callback
     );
 });
-
-
-
-/**
- * (build) builds the actual sd card content
- *
- */
-
-var SDCardPathOutput = output + 'sdcard/',
-    SDCardSystemPathOutput = SDCardPathOutput + "system/";
-
-// (cleanup)
-gulp.task('sdcard-cleanup', function() {
-    return del(
-        [SDCardPathOutput + '**/*']
-    );
-});
-
-// (copy)
-gulp.task('sdcard-copy', function() {
-
-    // copy system
-    gulp.src(systemPathOutput + "**/*", {
-        base: systemPathOutput
-    })
-        .pipe(gulp.dest(SDCardSystemPathOutput));
-
-    // copy apps
-    gulp.src("apps/**/*", {
-        base: "apps/"
-    })
-        .pipe(gulp.dest(SDCardPathOutput + 'apps'));
-});
-
-// (build)
-gulp.task('build-sdcard', function(callback) {
-    runSequence(
-        'sdcard-cleanup',
-        'sdcard-copy',
-        callback
-    );
-});
-
-
-
 
 /**
  * Build documentation
@@ -601,10 +548,9 @@ gulp.task('clean', function() {
 gulp.task('default', function(callback) {
     runSequence(
         'clean',
-        'build-framework',
+        'build-appdrive',
         'build-install',
         'build-uninstall',
-        'build-sdcard',
         //'build-docs',
         callback
     );
