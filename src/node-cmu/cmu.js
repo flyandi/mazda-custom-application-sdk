@@ -68,9 +68,10 @@ const SYSTEM_PATH = "system/";
 const SYSTEM_FRAMEWORK_PATH = "framework/";
 const SYSTEM_FRAMEWORK_JS = "framework.js";
 const SYSTEM_FRAMEWORK_CSS = "framework.css";
+const SYSTEM_CUSTOM_PATH = "custom/";
 
 const JCI_MOUNT_PATH = "/tmp/mnt/data_persist/appdrive/"; // we link our resources in here
-const JCI_MOUNT_CUSTOM_PATH = "custom/";
+const JCI_APP_PATH = "custom";
 
 /**
  * This is the CMU that is compiled into the node binary and runs the actual link between the
@@ -228,9 +229,9 @@ cmu.prototype = {
 
     /**
      * Sends a payload back to the client
-     * @param  object   client      The client
-     * @param  object   payload     The payload in object format
-     * @return boolean              Returns the status of the operation
+     * @param  object       client      The client
+     * @param  object       payload     The payload in object format
+     * @return boolean                  Returns the status of the operation
      */
     sendFromPayload: function(client, payload, data, resultCode) {
 
@@ -244,7 +245,7 @@ cmu.prototype = {
     /**
      * Returns the version
      * @getter
-     * @return  string              The version number
+     * @return  string                  The version number
      */
     getVersion: function() {
         return this.version;
@@ -253,7 +254,8 @@ cmu.prototype = {
 
     /**
      * Finds the appdrive
-     * @return {[type]} [description]
+     * @param   function    callback    A callback
+     * @return void
      */
     findAppDrive: function(callback) {
 
@@ -265,7 +267,7 @@ cmu.prototype = {
         };
 
         var result = [],
-            mountPoints = ['sd_nav', 'sda', 'sdb', 'sdc', 'sdd', 'sde'];
+            mountPoints = ['sd_nav', 'sda', 'sdb', 'sdc', 'sdd', 'sde', 'sdf'];
 
         mountPoints.forEach(function(mountPoint) {
 
@@ -275,18 +277,21 @@ cmu.prototype = {
 
                 applicationsPath = [appDrivePath, APPLICATIONS_PATH].join(""),
 
-                systemPath = [appDrivePath, SYSTEM_PATH].join("");
+                systemPath = [appDrivePath, SYSTEM_PATH].join(""),
+
+                mountPath = [JCI_MOUNT_PATH, JCI_APP_PATH].join("");
 
             // check primary conditions
             if(this._isFile(appDriveFilename) && this._isDir(systemPath) && this._isDir(applicationsPath)) {
 
                 /**
-                 * Assign location
+                 * Assign locations
                  */
 
                 this.appdrive.locations = {
                     root: appDrivePath,
-                    apps: applicationsPath
+                    apps: applicationsPath,
+                    mount: mountPath,
                 };
 
                 /**
@@ -302,6 +307,18 @@ cmu.prototype = {
                 this.appdrive.js.push([systemPath, SYSTEM_FRAMEWORK_PATH, SYSTEM_FRAMEWORK_JS].join(""));
 
                 this.appdrive.css.push([systemPath, SYSTEM_FRAMEWORK_PATH, SYSTEM_FRAMEWORK_CSS].join(""))
+
+                /**
+                 * Prepare system mount
+                 */
+
+                if(this._isLink(mountPath)) {
+                    // unlink
+                    fs.unlinkSync(mountPath)
+                }
+
+                // create symbolic link for this session
+                fs.symlinkSync([systemPath, SYSTEM_CUSTOM_PATH].join(""), mountPath);
 
                 /**
                  * Find Applications
@@ -364,9 +381,10 @@ cmu.prototype = {
     },
 
     /**
-     * __fileExists
+     * Checks if the file exists
+     * @param   string  path    A string that represents a file path
+     * @return  bool            Returns true if the file is present
      */
-
     _isFile: function(path) {
         try {
             return fs.lstatSync(path).isFile();
@@ -377,12 +395,25 @@ cmu.prototype = {
 
     /**
      * Checks if the directory exists
-     * @param  {[type]}  path [description]
-     * @return {Boolean}      [description]
+     * @param   string  path    A string that represents a path
+     * @return  bool            Returns true if the path is a directory
      */
     _isDir: function(path) {
         try {
             return fs.lstatSync(path).isDirectory();
+        } catch(e) {}
+
+        return false;
+    },
+
+     /**
+     * Checks if the path is a symlink
+     * @param   string  path    A string that represents a path
+     * @return  bool            Returns true if the path is symbolic
+     */
+    _isLink: function(path) {
+        try {
+            return fs.lstatSync(path).isSymbolicLink();
         } catch(e) {}
 
         return false;
