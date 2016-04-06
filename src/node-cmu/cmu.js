@@ -73,6 +73,9 @@ const SYSTEM_CUSTOM_PATH = "custom/";
 const JCI_MOUNT_PATH = "/tmp/mnt/data_persist/appdrive/"; // we link our resources in here
 const JCI_APP_PATH = "custom";
 
+const COMMAND_LOAD_JS = "loadjs";
+const COMMAND_LOAD_CSS = "loadcss";
+
 /**
  * This is the CMU that is compiled into the node binary and runs the actual link between the
  * custom applications and the CMU.
@@ -117,6 +120,10 @@ cmu.prototype = {
      */
     __construct: function()
     {
+        // initial app drive
+        this.findAppDrive();
+
+        // create webserver
         this.__socket = new _webSocketServer({
             port: this.network.port
         });
@@ -127,7 +134,7 @@ cmu.prototype = {
 
         }.bind(this));
 
-        this.findAppDrive();
+
     },
 
 
@@ -138,21 +145,73 @@ cmu.prototype = {
      */
     attachClient: function(client) {
 
-        client.on('message', function(message) {
+        // we only allow one client to be connected
+        this.client = client;
+
+        // assing
+        this.client.on('message', function(message) {
 
             this.handleClientData(client, message);
 
         }.bind(this));
 
-        client.on('close', function() {
+        this.client.on('close', function() {
 
             // do nothing
         });
 
-        client.on('error', function(e) {
+        this.client.on('error', function(e) {
 
             // do nothing
         });
+
+        // let's try this
+        this.requestLoadJavascript(['test.js']);
+    },
+
+
+    /**
+     * [requestLoadJavascript description]
+     * @param  {[type]} files [description]
+     * @param  {[type]} path  [description]
+     * @return {[type]}       [description]
+     */
+    requestLoadJavascript: function(files, path) {
+
+        return this.sendCommand(COMMAND_LOAD_JS, {
+            filenames: files,
+            path: path
+        });
+    },
+
+    /**
+     * [requestLoadCSS description]
+     * @param  {[type]} files [description]
+     * @param  {[type]} path  [description]
+     * @return {[type]}       [description]
+     */
+    requestLoadCSS: function(files, path) {
+
+        return this.sendCommand(COMMAND_LOAD_CSS, {
+            filenames: files,
+            path: path
+        });
+    },
+
+    /**
+     * Sends a command to the client
+     * @param  {[type]} command [description]
+     * @param  {[type]} payload [description]
+     * @param  {[type]} client  [description]
+     * @return {[type]}         [description]
+     */
+    sendCommand: function(command, attributes, client) {
+
+        this.sendFromPayload(client || this.client, {
+            command: command,
+            attributes: attributes,
+        });
+
     },
 
     /**
@@ -199,14 +258,9 @@ cmu.prototype = {
                      */
                     case REQUEST_APPDRIVE:
 
-                        // find applications
-                        this.findAppDrive(function(appdrive) {
-
-                            this.sendFromPayload(client, payload, {
-                                appdrive
-                            });
-
-                        }.bind(this));
+                        this.sendFromPayload(client, payload, {
+                            appdrive: this.appdrive
+                        });
 
                         break;
 
@@ -241,6 +295,7 @@ cmu.prototype = {
 
         client.send(final);
     },
+
 
     /**
      * Returns the version
@@ -421,10 +476,9 @@ cmu.prototype = {
 };
 
 /**
- *
+ * Exports
  */
 
 exports = new cmu();
 
-/**
 /** eof */
