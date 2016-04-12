@@ -46,7 +46,7 @@ window.CMU = {
     requests: {
 
         REQUEST_PING: 'ping',
-        REQUEST_APPDRIVE: 'appdrive',
+        REQUEST_SETUP: 'setup',
     },
 
     /**
@@ -80,7 +80,7 @@ window.CMU = {
 
             this.initialized = true;
 
-            this.requests = {};
+            this.requestBuffer = {};
 
             this.obtainConnection();
         }
@@ -124,6 +124,8 @@ window.CMU = {
             this.client.onopen = function() {
 
                 this.__log("connection open");
+
+                this.requestSetup();
 
             }.bind(this);
 
@@ -176,6 +178,15 @@ window.CMU = {
     },
 
     /**
+     * [requestSetup description]
+     * @return {[type]} [description]
+     */
+    requestSetup: function() {
+
+        this.request(this.requests.REQUEST_SETUP);
+    },
+
+    /**
      * [request description]
      * @return {[type]} [description]
      */
@@ -186,12 +197,12 @@ window.CMU = {
 
         // prepare id
         var id = false;
-        while(!id || this.requests[id]) {
+        while(!id || this.requestBuffer[id]) {
             id = (new Date()).getTime();
         }
 
         // register request
-        this.requests[id] = callback;
+        this.requestBuffer[id] = callback;
 
         // sanity check
         payload = payload || {};
@@ -200,6 +211,8 @@ window.CMU = {
         payload.requestId = id;
 
         payload.request = request;
+
+        console.log(payload);
 
         // execute
         return this.client.send(JSON.stringify(payload));
@@ -235,16 +248,16 @@ window.CMU = {
                 default:
 
                     // check against active requests
-                    if(payload.requestId && this.requests[payload.requestId]) {
+                    if(payload.requestId && this.requestBuffer[payload.requestId]) {
 
-                        var callback = this.requests[payload.requestId];
+                        var callback = this.requestBuffer[payload.requestId];
 
                         if(typeof(callback) == "function") {
 
                             callback(payload.result == this.results.RESULT_ERROR, payload);
                         }
 
-                        delete this.requests[payload.requestId];
+                        delete this.requestBuffer[payload.requestId];
 
                         return; // all done
                     }
@@ -270,42 +283,15 @@ window.CMU = {
             /** @type {LOADJS} [description] */
             case this.commands.LOAD_JS:
 
-                this.loadJavascript(attributes.filenames, attributes.path);
-
+                this.__loadInvoker(attributes, 'script', 'text/javascript');
                 break;
 
+            /** @type {LOADCSS} */
+            case this.commands.LOAD_CSS:
+
+                 this.__loadInvoker(attributes, 'style', 'text/css');
+                 break;
         }
-    },
-
-    /**
-     * (loadJavascript)
-     */
-
-    loadJavascript: function(scripts, path, callback, options) {
-
-        this.__loadInvoker(scripts, path, function(filename, next) {
-            var script = document.createElement('script');
-            script.type = 'text/javascript';
-            script.src = filename;
-            script.onload = next;
-            document.body.appendChild(script);
-        }, callback, options);
-    },
-
-    /**
-     * (loadCSS)
-     */
-
-    loadCSS: function(css, path, callback, options) {
-
-        this.__loadInvoker(css, path, function(filename, next) {
-            var css = document.createElement('link');
-            css.rel = "stylesheet";
-            css.type = "text/css";
-            css.href = filename
-            css.onload = async ? callback : next;
-            document.body.appendChild(css);
-        }, callback, options);
     },
 
 
@@ -313,74 +299,23 @@ window.CMU = {
      * (__loadInvoker)
      */
 
-    __loadInvoker: function(input, path, build, callback, options) {
+    __loadInvoker: function(attributes, tag, type) {
 
-        // sanity checks
-        if(typeof(build) != "function") return false;
+        if(!attributes.data || !attributes.data instanceof Array) return false;
 
-        // initialize
-        var ids = false, result = false, options = options ? options : {timeout: 1000}, timeout = false;
+        attributes.data.forEach(function(item) {
 
-        // items need to be an array
-        var items = input instanceof Array ? input : function() {
+            if(item.location && item.contents) {
 
-            var newArray = [];
+                var element = document.createElement(tag);
+                element.setAttribute("data-script-url", item.location);
+                element.appendChild(document.createTextNode(item.contents));
 
-            newArray.push(input);
-
-            return newArray;
-
-        }.call();
-
-        // loaded handler
-        var loaded = 0, next = function(failure) {
-            loaded++;
-            if(loaded >= items.length) {
-                if(typeof(callback) == "function") {
-                    callback(result);
-                }
-            }
-        };
-
-        // process items
-        items.forEach(function(filename, index) {
-
-            try {
-
-                filename = (path ? path : "") + filename;
-
-                if(options.timeout) {
-
-                    clearTimeout(timeout);
-                    timeout = setTimeout(function() {
-
-                        this.__error("__loadInvoker:timeout", {filename: filename});
-
-                        // just do the next one
-                        next(true);
-
-                    }.bind(this), options.timeout);
-
-                }
-
-                try {
-                    build(filename, function(resource) {
-
-                        next();
-
-                    }.bind(this), ids ? ids[index] : false);
-
-                } catch(error) {
-                    next(true);
-                }
-
-            } catch(error) {
-                this.__error("__loadInvoker:loaderror", {error: error, filename: filename});
+                if(type) element.setAttribute("type", type);
+                document.head.appendChild(element);
             }
 
-        }.bind(this));
-
-        return true;
+        });
     },
 
     /**

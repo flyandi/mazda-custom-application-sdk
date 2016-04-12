@@ -34,9 +34,11 @@ const VERSION = "0.0.1";
  * @const
  */
 
-const _webSocketServer = require("ws").Server;
+const _socket = require("ws").Server;
 const _extend = require("./cmu-utils").extend;
+const _spawn = require('threads').spawn;
 const fs = require("fs");
+
 
 /**
  * Minimal Command
@@ -45,7 +47,7 @@ const fs = require("fs");
 
 const REQUEST_VERSION = "version";
 const REQUEST_PING = "ping";
-const REQUEST_APPDRIVE = "appdrive";
+const REQUEST_SETUP = "setup";
 
 const RESULT_OK = 200;
 const RESULT_PONG = 201;
@@ -121,10 +123,10 @@ cmu.prototype = {
     __construct: function()
     {
         // initial app drive
-        this.findAppDrive();
+        this.updateAppDrive();
 
         // create webserver
-        this.__socket = new _webSocketServer({
+        this.__socket = new _socket({
             port: this.network.port
         });
 
@@ -151,68 +153,23 @@ cmu.prototype = {
         // assing
         this.client.on('message', function(message) {
 
+            this._log('client:message', message);
+
             this.handleClientData(client, message);
 
         }.bind(this));
 
         this.client.on('close', function() {
 
-            // do nothing
-        });
+            this._log('client:closed');
+        }.bind(this));
 
         this.client.on('error', function(e) {
 
-            // do nothing
-        });
-
-        // let's try this
-        this.requestLoadJavascript(['test.js']);
+            this._log('client:error', e.message);
+        }.bind(this));
     },
 
-
-    /**
-     * [requestLoadJavascript description]
-     * @param  {[type]} files [description]
-     * @param  {[type]} path  [description]
-     * @return {[type]}       [description]
-     */
-    requestLoadJavascript: function(files, path) {
-
-        return this.sendCommand(COMMAND_LOAD_JS, {
-            filenames: files,
-            path: path
-        });
-    },
-
-    /**
-     * [requestLoadCSS description]
-     * @param  {[type]} files [description]
-     * @param  {[type]} path  [description]
-     * @return {[type]}       [description]
-     */
-    requestLoadCSS: function(files, path) {
-
-        return this.sendCommand(COMMAND_LOAD_CSS, {
-            filenames: files,
-            path: path
-        });
-    },
-
-    /**
-     * Sends a command to the client
-     * @param  {[type]} command [description]
-     * @param  {[type]} payload [description]
-     * @param  {[type]} client  [description]
-     * @return {[type]}         [description]
-     */
-    sendCommand: function(command, attributes, client) {
-
-        this.sendFromPayload(client || this.client, {
-            command: command,
-            attributes: attributes,
-        });
-
-    },
 
     /**
      * Handles a client message
@@ -223,7 +180,7 @@ cmu.prototype = {
     handleClientData: function(client, message, flags) {
 
         try {
-            var payload = JSON.parse(message);
+            let payload = JSON.parse(message);
 
             // process minimal command interfae
             if(payload.request) {
@@ -253,14 +210,20 @@ cmu.prototype = {
                         break;
 
                     /**
-                     * Finds the AppDrive
-                     * @type REQUEST_APPDRIVE
+                     * Setup
+                     * @type REQUEST_SETUP
                      */
-                    case REQUEST_APPDRIVE:
+                    case REQUEST_SETUP:
 
-                        this.sendFromPayload(client, payload, {
-                            appdrive: this.appdrive
-                        });
+                        if(this.appdrive && this.appdrive.enabled) {
+
+                            // load javascripts
+                            this.requestLoadJavascript(this.resources.js);
+
+                            // load css
+                            this.requestLoadCSS(this.resources.css);
+
+                        }
 
                         break;
 
@@ -289,13 +252,77 @@ cmu.prototype = {
      */
     sendFromPayload: function(client, payload, data, resultCode) {
 
-        var final = JSON.stringify(_extend({}, payload, data, {
+        let final = JSON.stringify(_extend({}, payload, data, {
             result: resultCode || RESULT_OK
         }));
 
         client.send(final);
     },
 
+
+    /**
+     * Sends a command to the client
+     * @param  {[type]} command [description]
+     * @param  {[type]} payload [description]
+     * @param  {[type]} client  [description]
+     * @return {[type]}         [description]
+     */
+    sendCommand: function(command, attributes, client) {
+
+        this.sendFromPayload(client || this.client, {
+            command: command,
+            attributes: attributes,
+        });
+
+    },
+
+    /**
+     * [requestLoadJavascript description]
+     * @param  {[type]} files [description]
+     * @return {[type]}       [description]
+     */
+    requestLoadJavascript: function(files) {
+
+        return this.invokeLoadCommand(COMMAND_LOAD_JS, files);
+    },
+
+    /**
+     * [requestLoadCSS description]
+     * @param  {[type]} files [description]
+     * @return {[type]}       [description]
+     */
+    requestLoadCSS: function(files) {
+
+        return this.invokeLoadCommand(COMMAND_LOAD_CSS, files);
+    },
+
+    /**
+     * [invokeLoadCommand description]
+     * @param  {[type]} command [description]
+     * @param  {[type]} files   [description]
+     * @return {[type]}         [description]
+     */
+    invokeLoadCommand: function(command, files) {
+
+        let source = files instanceof Array ? files : ([].push(files)),
+            data = [];
+
+        source.forEach(function(filename) {
+
+            if(this._isFile(filename)) {
+
+                data.push({
+                    contents: (fs.readFileSync(filename)).toString(),
+                    location: filename
+                });
+            }
+
+        }.bind(this));
+
+        this.sendCommand(command, {
+            data
+        });
+    },
 
     /**
      * Returns the version
@@ -312,21 +339,27 @@ cmu.prototype = {
      * @param   function    callback    A callback
      * @return void
      */
-    findAppDrive: function(callback) {
+    updateAppDrive: function(callback) {
 
         this.appdrive = {
             locations: {},
             applications: {},
+            enabled: false,
+        };
+
+        this.workers = {};
+
+        this.resources = {
             js: [],
             css: [],
         };
 
-        var result = [],
+        let result = [],
             mountPoints = ['sd_nav', 'sda', 'sdb', 'sdc', 'sdd', 'sde', 'sdf'];
 
         mountPoints.forEach(function(mountPoint) {
 
-            var appDrivePath = [MOUNTROOT_PATH, mountPoint, APPDRIVE_PATH].join(""),
+            let appDrivePath = [MOUNTROOT_PATH, mountPoint, APPDRIVE_PATH].join(""),
 
                 appDriveFilename = [appDrivePath, APPDRIVE_JSON].join(""),
 
@@ -359,9 +392,11 @@ cmu.prototype = {
                  * Load Framework
                  */
 
-                this.appdrive.js.push([systemPath, SYSTEM_FRAMEWORK_PATH, SYSTEM_FRAMEWORK_JS].join(""));
+                this.resources.js.push([systemPath, SYSTEM_FRAMEWORK_PATH, SYSTEM_FRAMEWORK_JS].join(""));
 
-                this.appdrive.css.push([systemPath, SYSTEM_FRAMEWORK_PATH, SYSTEM_FRAMEWORK_CSS].join(""))
+                this.resources.css.push([systemPath, SYSTEM_FRAMEWORK_PATH, SYSTEM_FRAMEWORK_CSS].join(""))
+
+                this.appdrive.enabled = true;
 
                 /**
                  * Prepare system mount
@@ -379,7 +414,7 @@ cmu.prototype = {
                  * Find Applications
                  */
 
-                var appFiles = fs.readdirSync(applicationsPath);
+                let appFiles = fs.readdirSync(applicationsPath);
 
                 if(appFiles.length) appFiles.forEach(function(appId) {
 
@@ -390,11 +425,11 @@ cmu.prototype = {
 
                     if(!this.appdrive.applications[appId]) {
 
-                        var applicationPath = [applicationsPath, appId, "/"].join("");
+                        let applicationPath = [applicationsPath, appId, "/"].join("");
 
                         if(this._isDir(applicationPath)) {
 
-                            var profile = {
+                            let profile = {
                                     id: appId,
                                     path: applicationPath,
                                     files: {},
@@ -404,7 +439,7 @@ cmu.prototype = {
 
                             parts.forEach(function(filename) {
 
-                                var fullFilename = [applicationPath, filename].join("");
+                                let fullFilename = [applicationPath, filename].join("");
 
                                 if(this._isFile(fullFilename)) {
 
@@ -423,6 +458,8 @@ cmu.prototype = {
 
                             if(found >= 1) {
                                 this.appdrive.applications[appId] = profile;
+
+                                this.registerWorker(appId);
                             }
                         }
                     }
@@ -433,6 +470,30 @@ cmu.prototype = {
         }.bind(this));
 
         if(callback) callback(this.appdrive);
+    },
+
+
+    /**
+     * Registers a worker to the appid
+     * @param  {[type]} appId [description]
+     * @return {[type]}       [description]
+     */
+    registerWorker: function(appId) {
+
+        // ensure applications is registered
+        if(!this.appdrive.applications[appId]) return false;
+
+        // ensure worker is eligible
+        if(!this._isFile(this.appdrive.applications[appId].files[APPLICATION_WORKER])) return false;
+
+        // create worker
+        this.workers[appId] = {
+
+            appId: appId,
+
+            thread: _spawn(this.appdrive.applications[appId].files[APPLICATION_WORKER])
+        };
+
     },
 
     /**
@@ -472,6 +533,27 @@ cmu.prototype = {
         } catch(e) {}
 
         return false;
+    },
+
+    /**
+     * [__log description]
+     * @param  {[type]} name        [description]
+     * @param  {[type]} description [description]
+     * @param  {[type]} attributes  [description]
+     * @return {[type]}             [description]
+     */
+    _log: function(name, description, attributes) {
+
+        console.log("[" + name + "]", description, attributes ? function() {
+
+            let result = [];
+
+            Object.keys(attributes).forEach(function(element, key, _array) {
+                result.push("[" + element + "=" + _array[key] + "]");
+            });
+
+            return result.join(" ");
+        }.call() : "");
     },
 };
 
