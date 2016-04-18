@@ -47,6 +47,8 @@ window.CMU = {
 
         REQUEST_PING: 'ping',
         REQUEST_SETUP: 'setup',
+        REQUEST_APPLICATIONS: 'applications',
+        REQUEST_APPDRIVE: 'appdrive',
     },
 
     /**
@@ -71,6 +73,16 @@ window.CMU = {
     },
 
     /**
+     * Resource
+     */
+
+    resource: {
+        JAVASCRIPT: 'js',
+        CSS: 'css',
+        JSON: 'json',
+    },
+
+    /**
      * Initializes the proxy
      * @return void
      */
@@ -81,6 +93,8 @@ window.CMU = {
             this.initialized = true;
 
             this.requestBuffer = {};
+
+            this.waitForQueue = {};
 
             this.obtainConnection();
         }
@@ -177,13 +191,48 @@ window.CMU = {
         }
     },
 
+
     /**
-     * [requestSetup description]
+     * Request initial setup
      * @return {[type]} [description]
      */
-    requestSetup: function() {
+    requestSetup: function(callback) {
 
-        this.request(this.requests.REQUEST_SETUP);
+        this.request(this.requests.REQUEST_SETUP, false, function(error, result) {
+
+            this.appdrive = result.appdrive;
+
+        }.bind(this));
+    },
+
+    /**
+     * Requests the applicationst to be loaded
+     * @return {[type]} [description]
+     */
+    requestApplications: function() {
+
+        this.request(this.requests.REQUEST_APPLICATIONS);
+    },
+
+
+    /**
+     * [requestResource description]
+     * @return {[type]} [description]
+     */
+    requestResource: function(type, files, location, callback) {
+
+        if(typeof(location) == "function") callback = location;
+
+        if(typeof(files) != "object") {
+            (files = []).push(files);
+        }
+
+        console.log(files, location);
+
+        if(typeof(location) == "string") {
+
+
+        }
     },
 
     /**
@@ -211,8 +260,6 @@ window.CMU = {
         payload.requestId = id;
 
         payload.request = request;
-
-        console.log(payload);
 
         // execute
         return this.client.send(JSON.stringify(payload));
@@ -294,6 +341,53 @@ window.CMU = {
         }
     },
 
+    /**
+     * (attach)
+     */
+
+    attach: function(key, callback) {
+
+        if(this.has(key) || typeof(callback) != "function") return false;
+
+        this[key] = callback(this);
+
+        if(this.waitForQueue[key]) {
+
+            this.waitForQueue[key].forEach(function(callback) {
+                callback(this[key]);
+            }.bind(this));
+
+            this.waitForQueue[key] = false;
+        }
+    },
+
+
+    /**
+     * (has)
+     */
+
+    has: function(key) {
+
+        return this[key] ? true : false;
+    },
+
+
+    /**
+     * (waitFor)
+     */
+
+    waitFor: function(key, callback) {
+
+        if(typeof(callback) != 'function') return false;
+
+        if(this.has(key)) return callback(this[key]);
+
+        if(!this.waitForQueue[key]) this.waitForQueue[key] = [];
+
+        this.waitForQueue[key].push(callback);
+
+    },
+
 
     /**
      * (__loadInvoker)
@@ -307,6 +401,8 @@ window.CMU = {
 
             if(item.location && item.contents) {
 
+                this.__unload(item.location);
+
                 var element = document.createElement(tag);
                 element.setAttribute("data-script-url", item.location);
                 element.appendChild(document.createTextNode(item.contents));
@@ -315,7 +411,21 @@ window.CMU = {
                 document.head.appendChild(element);
             }
 
-        });
+        }.bind(this));
+    },
+
+    /**
+     * [__unload description]
+     * @return {[type]} [description]
+     */
+    __unload: function(location) {
+
+        var element = document.querySelector('[data-script-url="' + location + '"]');
+
+        if(element) {
+            document.head.removeChild(element);
+        }
+
     },
 
     /**
@@ -353,7 +463,7 @@ window.CMU = {
  */
 
 if(window.opera) {
-    window.opera.addEventListener('AfterEvent.load', function (e) {
+    window.opera.addEventListener('load', function (e) {
         CMU.initialize();
     });
 }

@@ -53,12 +53,6 @@ CustomApplicationsHandler.register("app.helloworld", new CustomApplication({
 		js: [],
 
 		/**
-		 * (css) defines css includes
-		 */
-
-		css: ['app.css'],
-
-		/**
 		 * (images) defines images that are being preloaded
 		 *
 		 * Images are assigned to an id

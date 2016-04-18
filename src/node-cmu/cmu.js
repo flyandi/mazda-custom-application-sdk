@@ -48,12 +48,17 @@ const fs = require("fs");
 const REQUEST_VERSION = "version";
 const REQUEST_PING = "ping";
 const REQUEST_SETUP = "setup";
+const REQUEST_APPLICATIONS = "applications";
+const REQUEST_RESOURCES = "resource";
 
 const RESULT_OK = 200;
 const RESULT_PONG = 201;
 const RESULT_NOTFOUND = 404;
 const RESULT_ERROR = 500;
 
+const RESOURCE_TYPE_JAVASCRIPT = "js";
+const RESOURCE_TYPE_CSS = "css";
+const RESOURCE_TYPE_JSON = "json";
 
 const MOUNTROOT_PATH = "/tmp/mnt/";
 const APPDRIVE_PATH = "/appdrive/";
@@ -70,6 +75,7 @@ const SYSTEM_PATH = "system/";
 const SYSTEM_FRAMEWORK_PATH = "framework/";
 const SYSTEM_FRAMEWORK_JS = "framework.js";
 const SYSTEM_FRAMEWORK_CSS = "framework.css";
+const SYSTEM_FRAMEWORK_VENDOR_PATH = "vendor/";
 const SYSTEM_CUSTOM_PATH = "custom/";
 
 const JCI_MOUNT_PATH = "/tmp/mnt/data_persist/appdrive/"; // we link our resources in here
@@ -217,13 +223,79 @@ cmu.prototype = {
 
                         if(this.appdrive && this.appdrive.enabled) {
 
-                            // load javascripts
-                            this.requestLoadJavascript(this.resources.js);
+                            try {
 
-                            // load css
-                            this.requestLoadCSS(this.resources.css);
+                                // send appdrive
+                                this.sendFromPayload(client, payload, {
+                                    appdrive: this.appdrive
+                                });
 
+                                // load javascripts
+                                this.requestLoadJavascript(this.resources.js);
+
+                                // load css
+                                this.requestLoadCSS(this.resources.css);
+
+                            } catch(e) {
+
+                            }
                         }
+
+                        break;
+
+                    /**
+                     * Applications
+                     * @type REQUEST_APPLICATIONS
+                     */
+                    case REQUEST_APPLICATIONS:
+
+                        if(this.appdrive && this.appdrive.enabled) {
+
+                            Object.keys(this.appdrive.applications).forEach(function(key) {
+
+                                try{
+                                    let application = this.appdrive.applications[key];
+
+                                    this.requestLoadJavascript(application.files[APPLICATION_JS]);
+
+                                    this.requestLoadCSS(application.files[APPLICATION_CSS]);
+
+                                }catch(e) {
+                                    console.error(e);
+                                }
+
+                            }.bind(this));
+                        }
+
+                        break;
+
+
+                    /**
+                     * Resource
+                     * @type REQUEST_RESOURCES
+                     */
+                    case REQUEST_RESOURCES:
+
+                        console.log(payload);
+
+                       /* switch(payload.type) {
+
+                            case RESOURCE_TYPE_JSON:
+
+                                break;
+
+                            case RESOURCE_TYPE_CSS:
+
+                                console.log(request);
+
+                                break;
+
+                            case RESOURCE_TYPE_JAVASCRIPT:
+
+
+                                break;
+
+                        }*/
 
                         break;
 
@@ -304,8 +376,11 @@ cmu.prototype = {
      */
     invokeLoadCommand: function(command, files) {
 
-        let source = files instanceof Array ? files : ([].push(files)),
-            data = [];
+        let data = [], source = files;
+
+        if(!Array.isArray(files)) {
+           (source = []).push(files);
+        }
 
         source.forEach(function(filename) {
 
@@ -411,6 +486,19 @@ cmu.prototype = {
                 fs.symlinkSync([systemPath, SYSTEM_CUSTOM_PATH].join(""), mountPath);
 
                 /**
+                 * Find Vendor
+                 */
+
+                let vendorPath = [systemPath, SYSTEM_FRAMEWORK_PATH, SYSTEM_FRAMEWORK_VENDOR_PATH].join(""),
+                    vendorFiles = fs.readdirSync(vendorPath);
+
+                if(vendorFiles.length) vendorFiles.forEach(function(fileName) {
+
+                    this.resources.js.push([vendorPath, fileName].join(""));
+
+                }.bind(this));
+
+                /**
                  * Find Applications
                  */
 
@@ -430,9 +518,11 @@ cmu.prototype = {
                         if(this._isDir(applicationPath)) {
 
                             let profile = {
-                                    id: appId,
-                                    path: applicationPath,
                                     files: {},
+                                    info: {
+                                        id: appId,
+                                        path: applicationPath,
+                                    },
                                 },
                                 parts = [APPLICATION_JS, APPLICATION_JSON, APPLICATION_CSS, APPLICATION_WORKER],
                                 found = 0;

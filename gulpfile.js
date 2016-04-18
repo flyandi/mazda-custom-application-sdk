@@ -170,7 +170,7 @@ gulp.task('appdrive-framework-js', function() {
             base: frameworkPathInput + "js"
         })
         .pipe(concat('framework.js'))
-        .pipe(uglify())
+        //.pipe(uglify())
         .pipe(concatutil.header(fs.readFileSync(frameworkPathInput + "resources/header.txt", "utf8"), {
             pkg: package
         }))

@@ -141,6 +141,15 @@ var CustomApplication = (function() {
 
 
         /**
+         * Life Cycles
+         * @type enum
+         */
+        lifecyles: {
+            CREATED: 'created',
+        },
+
+
+        /**
          * Creates the custom application's log object. This method is called during the initialization of the
          * custom application.
          *
@@ -164,17 +173,17 @@ var CustomApplication = (function() {
                 },
 
                 debug: function() {
-                    CustomApplicationLog.debug.apply(CustomApplicationLog, this.__toArray(arguments));
+                    Logger.debug.apply(this, this.__toArray(arguments));
                 },
 
                 // info
                 info: function() {
-                    CustomApplicationLog.info.apply(CustomApplicationLog, this.__toArray(arguments));
+                    Logger.info.apply(this, this.__toArray(arguments));
                 },
 
                 // error
                 error: function() {
-                    CustomApplicationLog.error.apply(CustomApplicationLog, this.__toArray(arguments));
+                    Logger.error.apply(this, this.__toArray(arguments));
                 },
             };
 
@@ -203,8 +212,8 @@ var CustomApplication = (function() {
             this.__currentContextIndex = false;
 
             // global specific
-            this.is = CustomApplicationHelpers.is();
-            this.sprintr = CustomApplicationHelpers.sprintr;
+            this.is = CMU.helpers.is;
+            this.sprintr = CMU.helpers.sprintr;
 
             // initialize log
             this.__log();
@@ -222,7 +231,7 @@ var CustomApplication = (function() {
 
             }.bind(this), this.CHANGED);
 
-            this.__region = CustomApplicationDataHandler.get(VehicleData.general.region, 'na').value;
+            this.__region = false; // CustomApplicationDataHandler.get(VehicleData.general.region, 'na').value;
 
             // set loader status
             this.__loaded = false;
@@ -250,7 +259,7 @@ var CustomApplication = (function() {
                 this.__created = true;
 
                 // execute life cycle
-                this.__lifecycle("created");
+                this.__lifecycle(this.lifecyles.CREATED);
 
                 // all done
                 this.__initialized = true;
@@ -298,7 +307,7 @@ var CustomApplication = (function() {
                 // load javascripts
                 if (this.require.js && !this.is.empty(this.require.js)) {
                     toload++;
-                    CustomApplicationResourceLoader.loadJavascript(this.require.js, this.location, function() {
+                    CMU.requestResource(CMU.resource.JAVASCRIPT, this.require.js, this.location, function() {
                         loaded++;
                         isFinished();
                     });
@@ -307,23 +316,10 @@ var CustomApplication = (function() {
                 // load css
                 if (this.require.css && !this.is.empty(this.require.css)) {
                     toload++;
-                    CustomApplicationResourceLoader.loadCSS(this.require.css, this.location, function() {
+                    CMU.requestResource(CMU.resource.CSS, this.require.css, this.location, function() {
                         loaded++;
                         isFinished();
                     });
-                }
-
-                // load images
-                if (this.require.images && !this.is.empty(this.require.images)) {
-                    toload++;
-                    CustomApplicationResourceLoader.loadImages(this.require.images, this.location, function(loadedImages) {
-
-                        // assign images
-                        this.images = loadedImages;
-
-                        loaded++;
-                        isFinished();
-                    }.bind(this));
                 }
 
                 return;

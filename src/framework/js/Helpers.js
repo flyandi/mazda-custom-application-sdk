@@ -25,21 +25,18 @@
  */
 
 /**
- * (CustomApplicationHelpers)
+ * (Helpers)
  *
  * A abstract collection of helpers for the framework
  */
 
-var CustomApplicationHelpers = {
 
-	/**
-	 * (is) a implemention of the flyandi:is library
-	 */
+CMU.attach("helpers", function(cmu) {
 
-	is: function() {
+	return {
 
-		return {
-
+		is: {
+			/** undefined */
 			undefined: 'undefined',
 
 			__toString: function() {
@@ -120,41 +117,41 @@ var CustomApplicationHelpers = {
 			same: function(a, b) {
 				return a == b;
 			},
-		};
-	},
+		},
 
-	/**
-	 * (iterate) a iterate that supports arrays and objects
-	 */
+		/**
+		 * (iterate) a iterate that supports arrays and objects
+		 */
 
-	iterate: function(o, item) {
+		iterate: function(o, item) {
 
-		if(this.is().object(o)) {
-			return Object.keys(o).map(function(key) {
-				return item(key, o[key], true);
-			});
-		} else if (this.is().array(o)) {
-			return o.map(function(value, key) {
-				return item(key, value);
-			});
-		}
-	},
+			if(this.is().object(o)) {
+				return Object.keys(o).map(function(key) {
+					return item(key, o[key], true);
+				});
+			} else if (this.is().array(o)) {
+				return o.map(function(value, key) {
+					return item(key, value);
+				});
+			}
+		},
 
-	/**
-	 * (sprintr) (https://gist.github.com/flyandi/395816232c70de327801)
-	 */
+		/**
+		 * (sprintr) (https://gist.github.com/flyandi/395816232c70de327801)
+		 */
 
-	sprintr: function() {
-		var
-			args = Array.prototype.slice.call(arguments),
-			subject = arguments[0];
+		sprintr: function() {
+			var
+				args = Array.prototype.slice.call(arguments),
+				subject = arguments[0];
 
-		args.shift();
+			args.shift();
 
-		for(var i = 0; i < args.length; i++)
-			subject = subject.split("{" + i + "}").join(args[i]);
+			for(var i = 0; i < args.length; i++)
+				subject = subject.split("{" + i + "}").join(args[i]);
 
-		return subject;
-	},
-
-};
+			return subject;
+		},
+	}
+});
+/** eof */
