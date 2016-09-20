@@ -1,7 +1,7 @@
 {
   "name": "casdk-runtime",
   "description": "Write and deploy applications for the Mazda Infotainment System",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "homepage": "http://flyandi.github.io/mazda-custom-application-sdk/",
   "author": "Andy (flyandi) <flyandi@yahoo.com>",
   "repository": {
@@ -10,6 +10,8 @@
   },
   "license": "GPL-3.0",
   "dependencies": {
-    "ws": "^1.0.1"
+    "ws": "^1.0.1",
+    "threads": "*"
   }
+
 }

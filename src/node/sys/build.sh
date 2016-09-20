@@ -31,8 +31,11 @@
 # Build container
 docker build -t casdk-node .
 
+# Make folder
+mkdir -p ../dist
+
 # Copy release binary
-docker cp casdk-node:/armv7l/latest/node ../dist
+docker run --rm --entrypoint cat casdk-node /armv7l/latest/node > ../dist/node
 
 # Validate
 file ../dist/node

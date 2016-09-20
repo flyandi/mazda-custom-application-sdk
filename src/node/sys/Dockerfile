@@ -25,11 +25,11 @@
 #
 # Docker Build Environment for CASDK-NODE
 #
-FROM ubuntu
+FROM ubuntu:14.04.5
 MAINTAINER Andy <flyandi@yahoo.com>
 
 # Configuration
-ENV NODE_VERSION=5.9.0
+ENV NODE_VERSION=6.0.0
 
 # Setup Enviroment Variables
 WORKDIR /armv7l
