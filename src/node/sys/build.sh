@@ -31,8 +31,15 @@
 # Build container
 docker build -t casdk-node .
 
+# Cleanup
+if [ -f ../dist/node ]; then
+    rm ../dist/node
+fi
+
 # Make folder
 mkdir -p ../dist
+
+# remove
 
 # Copy release binary
 docker run --rm --entrypoint cat casdk-node /armv7l/latest/node > ../dist/node

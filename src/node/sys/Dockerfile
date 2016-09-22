@@ -29,7 +29,7 @@ FROM ubuntu:14.04.5
 MAINTAINER Andy <flyandi@yahoo.com>
 
 # Configuration
-ENV NODE_VERSION=6.0.0
+ENV NODE_VERSION=6.6.0
 
 # Setup Enviroment Variables
 WORKDIR /armv7l
