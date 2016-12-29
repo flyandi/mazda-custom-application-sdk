@@ -21,6 +21,9 @@ http://mazda3revolution.com/forums/2014-2016-mazda-3-skyactiv-audio-electronics/
 
 There is not a whole documentation available yet but you can access some basic articles from the projects WIKI.
 
+## Build
+To run the default build, execute ``npm run build``.
+
 ## About this Repo
 
 This is the development source repository for the CASDK containing everything and anything. However you shouldn't ever need to clone this repo if you don't activley participating in the micro framework development.

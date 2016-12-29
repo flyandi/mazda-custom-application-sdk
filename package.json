@@ -29,8 +29,8 @@
     "run-sequence": "^1.1.5"
   },
   "scripts": {
-    "build-runtime": "gulp build-runtime",
-    "build-install": "gulp build-install"
+    "build-install": "gulp build-install",
+    "build": "gulp default"
   },
   "license": "GPL-3.0"
 }
